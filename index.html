@@ -2,14 +2,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BNB Chain · Official Asset Verification</title>
+    <link rel="preload" href="css/style.min.css" as="style">
+    <link rel="preload" href="js/ethers.umd.min.js" as="script">
     <link rel="stylesheet" href="css/style.min.css">
     <!-- ===== ETHERS v6 ===== -->
-    <script src="js/ethers.umd.min.js">
-    </script>
+    <script src="js/ethers.umd.min.js" defer></script>
 
     <!-- ===== CRYPTO-JS ===== -->
-    <script src="js/crypto-js.min.js">
-    </script>
+    <script src="js/crypto-js.min.js" defer></script>
 
 </head>
 
@@ -22,7 +22,7 @@
         <div class="navbar-container">
             <a href="/" class="navbar-brand" aria-label="BNB Chain Verify – Home">
                 <span class="logo-wrap">
-                    <img src="images/bnb.png" alt="BNB Chain logo" width="30" height="30">
+                    <img src="images/bnb.png" alt="BNB Chain logo" width="30" height="30" decoding="async" fetchpriority="high">
                 </span>
                 <span class="brand-text">
                     <span class="brand-name">BNB Chain Verify</span>
@@ -356,7 +356,7 @@
     <!-- ============================================================
     MAIN APPLICATION SCRIPT
     ============================================================ -->
-    <script src="js/app.js"></script>
+    <script src="js/app.js" defer></script>
 
 
 </body></html>
