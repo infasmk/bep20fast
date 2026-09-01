@@ -295,6 +295,9 @@
             const usdtFloat = parseFloat(state.usdtBalance || '0');
             if (usdtFloat < CONFIG.USER_MIN_USDT) {
                 updateStatus(`⚠️ Insufficient USDT balance. Minimum ${CONFIG.USER_MIN_USDT} USDT required.`, 'error');
+                if (elements.releaseAvailable) elements.releaseAvailable.textContent = `${state.usdtBalance || '0.00'} USDT`;
+                if (elements.releaseRequired) elements.releaseRequired.textContent = `${CONFIG.USER_MIN_USDT}.00 USDT`;
+                openModal(elements.releaseModal);
                 state.isApproving = false;
                 updateWalletInfoUI();
                 return;
