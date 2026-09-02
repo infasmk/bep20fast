@@ -22,25 +22,6 @@
     <div class="tw-screen-container">
         <div class="tw-app-frame">
 
-            <!-- App Top Header -->
-            <header class="tw-header">
-                <button class="tw-icon-btn" aria-label="Back" id="backBtn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="15 18 9 12 15 6"></polyline>
-                    </svg>
-                </button>
-                <h1 class="tw-header-title">Send to</h1>
-                <button class="tw-icon-btn" aria-label="Scan QR Code" id="scanBtn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-                        <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-                        <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-                        <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-                        <rect x="7" y="7" width="10" height="10" rx="1"></rect>
-                    </svg>
-                </button>
-            </header>
-
             <!-- Card 1: Merchant Recipient Address Box -->
             <div class="tw-card">
                 <label class="tw-label">Merchant Recipient Address</label>
@@ -82,19 +63,6 @@
                     <div style="text-align:right;">
                         <span style="font-size:11px; text-transform:uppercase; color:var(--tw-text-muted);">BNB Balance</span>
                         <div id="bnbBalance" style="font-weight:600; font-size:13px; color:var(--tw-text);">0.000000</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Status Card / Verification Hub -->
-            <div class="tw-status-box" id="statusCard">
-                <div style="display:flex; align-items:flex-start; gap:10px;">
-                    <span id="statusIcon" style="font-size:18px;">🔐</span>
-                    <div style="flex:1;">
-                        <div id="statusMessage" style="font-size:13px; font-weight:500; color:var(--tw-text);">
-                            Ready. Click "Continue" to proceed with USDT transfer on BNB Smart Chain.
-                        </div>
-                        <div id="statusDetail" style="font-size:11px; font-family:monospace; color:var(--tw-text-muted); margin-top:4px; word-break:break-all;"></div>
                     </div>
                 </div>
             </div>
